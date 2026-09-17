@@ -122,17 +122,27 @@ function getGuidelines(topic, detailLevel) {
 - **Build und Test**: Vor Review bauen, testen, ausführen
 - **Automatisieren**: ESLint, Resharper, statische Analyse nutzen
 
-## Worauf achten
-| Bereich | Prüfpunkte |
-|---------|-----------|
-| Security | Keine Credentials im Code |
-| Performance | Keine premature Optimierung, Interface-Calls in Loops prüfen |
-| Patterns | Wiederholende Patterns parametrisieren |
-| Struktur | Logische Einheiten, kurze Methoden |
-| Komplexität | Ein Satz sollte Zweck beschreiben können |
-| Tests | Unit Tests, 80%+ Coverage |
-| Lesbarkeit | Sinnvolle Namen, konsistenter Style |
-| Dead Code | Ungenutzten Code komplett entfernen |
+## Priorität und Evidenz
+1. Correctness und Datenintegrität
+2. Security und Autorisierung
+3. Transaktionssicherheit und Performance
+4. Reliability und Observability
+5. Wartbarkeit
+6. Stil nur bei konkretem Folgeschaden
+
+- Nur Befunde mit konkretem Fehlerpfad, genauer Fundstelle und belastbarer Evidenz melden.
+- Niedrige Konfidenz als Prüffrage formulieren, nicht als blockierenden Befund.
+- Source, Tests und relevante Solution-/Registrierungsmetadaten gemeinsam prüfen.
+- Kleinste sichere Korrektur empfehlen; keine Architekturänderung ohne belegten Bedarf.
+- Automatisieren: Solution Checker, konfigurierte Roslyn/.NET-Analyzer,
+  TypeScript-Typecheck und type-aware ESLint.
+
+## Dataverse-Risiken
+- Pipeline: Message, Tabelle, Stage, Mode, Target und Images stimmen mit der Registrierung überein.
+- Security: Ausführungsidentität und Privilegien sind beabsichtigt; keine Secrets oder Payloads im Trace.
+- Performance: minimale Spalten, begrenzte Queries, Filtering Attributes und keine Parallel-/Batch-Requests im Plugin.
+- TypeScript/PCF: unterstützte Client API, begrenzte Web-API-Abfragen, Lifecycle-Cleanup und keine Render-/Event-Stürme.
+- Tests decken geänderte Risiken ab; keine pauschale Coverage-Zahl ersetzt fehlende Assertions.
 
 ## Abschluss
 - PR nicht lange offen lassen
@@ -142,8 +152,10 @@ function getGuidelines(topic, detailLevel) {
         "plugins": `# Plugin Development Guidelines (ORBIS)
 
 ## Allgemeine Regeln
-- C# .NET 4.6.2 (max. unterstützte Version)
-- ORBIS.Core.Plugin NuGet verwenden
+- Target Framework und C#-Version aus dem bestehenden Projekt und der aktuell
+  unterstützten Dataverse-Runtime ableiten; keine pauschale Versionsvorgabe.
+- ORBIS.Core.Plugin verwenden, wenn es Projektstandard und ein konkreter Nutzen ist;
+  direkte IPlugin-Implementierungen bleiben zulässig.
 - Microsoft Best Practices befolgen
 - Sandbox-kompatibel: Keine SQL, Reflection, Registry, Filesystem, IP-basierte Calls
 
@@ -170,20 +182,26 @@ namespace [YourNamespace]
 - Late Binding bevorzugen (new Entity())
 - Early Binding nur in Kundenprojekten, limitierte Properties
 - Asynchrone Operationen wo möglich
-- 2-Minuten Timeout beachten
+- Zwei Minuten sind die Plattformgrenze, kein Performanceziel; synchrone Pfade
+  erhalten ein deutlich kleineres, an der Anforderung gemessenes Budget.
 - Minimale triggering attribute filters
 - JSON/XML für Konfiguration
-- Unit Tests, 80%+ Coverage
-- FakeXrmEasy bei komplexen Tests
+- Risikobasierte Unit Tests für Pipeline-, Image-, Identity-, Fehler- und Regressionspfade
+- Fake Xrm Easy optional; Community-Tooling nicht als Pflichtarchitektur behandeln
+- Target + minimale Images vor zusätzlichem Retrieve verwenden
+- Query-Spalten explizit auswählen; keine unbeschränkten Abfragen
 
 ## Don'ts
 - Keine globalen/static Variablen mit Context/Service
 - Kein ILMerge
 - Keine Mega-Assemblies
 - Kein exzessives Tracing
-- Kein var für Basis-Datentypen
-- Kein LINQ für direkte Datenabfragen
-- Keine Depth-Abhängigkeit
+- Keine mutable Context-/Service-/Entity-Daten in Instanz- oder static-Feldern
+- Kein Task.Run, Task.WhenAll, Parallel.*, Threads oder Fire-and-forget
+- Kein ExecuteMultiple/ExecuteTransaction innerhalb eines Plugins
+- Kein ColumnSet(true) / AllColumns
+- Keine pauschale Depth-Abhängigkeit als Rekursionsschutz
+- Keine synchronen externen Calls ohne expliziten kurzen Timeout
 
 ## Plugin umbenennen/löschen
 1. Änderungen im Projekt
@@ -415,6 +433,19 @@ Beispiele:
 - Translation Files exportieren/importieren
 - Labels für alle Sprachen pflegen
 
+## Datenzugriff und Performance
+- Explizite Spaltenauswahl; kein AllColumns und kein fehlendes \$select
+- Paging/Begrenzung für Mengenabfragen; keine zeilenweisen Calls in externen Bulk-Clients
+- Target und Images nutzen, bevor derselbe Datensatz erneut gelesen wird
+- Filtering Attributes für Update-Schritte und doppelte/überlappende Registrierungen prüfen
+- Zwei-Minuten-Pluginlimit ist eine Ausfallgrenze, kein zulässiges Latenzbudget
+
+## Security und ALM
+- Ausführungsidentität, Custom-API-Privilegien, Rollen, Sharing und FLS explizit prüfen
+- Keine vollständigen Entity-Payloads, Tokens oder personenbezogenen Daten protokollieren
+- Solution Checker als plattformspezifischen Analyzer in CI ausführen; SARIF aufbewahren
+- Neue Critical/High Findings blockieren; bestehende Findings baselinen und kontrolliert abbauen
+
 ## Naming
 Siehe Naming Conventions`,
 
@@ -502,6 +533,9 @@ function getReviewChecklist(reviewType, componentType) {
 - [ ] Dokumentation aktualisiert
 - [ ] Tests vorhanden und erfolgreich
 - [ ] Code kompiliert/läuft ohne Fehler
+- [ ] Befunde haben konkrete Evidenz, Fundstelle, Impact und kleinste sichere Korrektur
+- [ ] Solution-/Registrierungsmetadaten wurden bei Dataverse-Code mitgeprüft
+- [ ] Niedrige Konfidenz wird als Prüffrage statt als Blocker behandelt
 `;
 
     const typeSpecific = {
@@ -513,7 +547,9 @@ function getReviewChecklist(reviewType, componentType) {
 - [ ] Lesbarkeit gegeben
 - [ ] Kein Dead Code
 - [ ] Performance: Keine Interface-Calls in Loops
-- [ ] Error Handling vorhanden
+- [ ] Error Handling erhält Diagnosekontext und verschluckt keine Fehler
+- [ ] Keine unnötige Abstraktion, Dependency oder Architekturänderung
+- [ ] Tests decken geänderte Risiken statt nur eine Coverage-Zahl ab
 `,
         architecture: `
 ## Architecture Review Checks
@@ -536,22 +572,48 @@ function getReviewChecklist(reviewType, componentType) {
 - [ ] DLP Policies eingehalten
 - [ ] Field Level Security wo nötig
 - [ ] Audit Logging aktiviert
+- [ ] Impersonation/Ausführungsidentität und Privilegien sind begründet
+- [ ] Traces enthalten keine vollständigen Payloads, Tokens oder personenbezogenen Daten
 `
     };
 
     const componentSpecific = {
         plugin: `
 ## Plugin-spezifische Checks
-- [ ] .NET 4.6.2 verwendet
-- [ ] ORBIS.Core.Plugin verwendet
+- [ ] Target Framework passt zu Projekt und aktuell unterstützter Runtime
+- [ ] ORBIS.Core.Plugin nur bei Projektstandard/konkretem Nutzen
 - [ ] Sandbox-kompatibel
-- [ ] Execute() kurz und prägnant
+- [ ] Message/Tabelle/Stage/Mode/Target stimmen mit Registrierung überein
+- [ ] Image-Namen und -Spalten stimmen mit der Verwendung überein
 - [ ] Minimale triggering attributes
 - [ ] Async wo möglich
-- [ ] 2-Minuten Timeout beachtet
-- [ ] Unit Tests vorhanden (80%+)
-- [ ] Keine globalen/static Variablen
-- [ ] Kein ILMerge
+- [ ] Synchrone Latenz weit unter der Zwei-Minuten-Ausfallgrenze
+- [ ] Target/Images vor redundantem Retrieve genutzt
+- [ ] Keine ColumnSet(true), AllColumns oder unbeschränkten Queries
+- [ ] Keine mutable Context-/Service-/Entity-Daten in Instanz/static-Feldern
+- [ ] Keine Parallelität, Threads, Fire-and-forget oder Batch-Requests
+- [ ] Ausführungsidentität/Impersonation explizit geprüft
+- [ ] Rekursion ursächlich verhindert, nicht pauschal über Depth
+- [ ] Externe Calls haben kurzen Timeout und blockieren keine lange Transaktion
+- [ ] Risikobasierte Tests für Pipeline, Images, Identity und Fehlerpfade
+`,
+        pcf: `
+## PCF-spezifische Checks
+- [ ] updateView ist wiederholbar und behandelt temporäre null-Werte
+- [ ] destroy entfernt Listener, Observer, Timer und gerenderte Roots
+- [ ] notifyOutputChanged, refresh, Web API und Rendering werden nicht unnötig ausgelöst
+- [ ] Type-aware ESLint, Typecheck, Tests und Production Build sind erfolgreich
+- [ ] Generierte Typen und Bundles werden nicht wie handgeschriebener Code bewertet
+- [ ] Tastatur, Fokus, Labels und Accessibility bleiben korrekt
+- [ ] Keine Secrets oder sensiblen Daten in Bundle/localStorage/sessionStorage
+`,
+        webresource: `
+## TypeScript/Webresource-spezifische Checks
+- [ ] executionContext.getFormContext() statt Xrm.Page
+- [ ] Kein window.top, unsupported DOM access oder synchrones XHR
+- [ ] Form-/Execution-Context wird nicht über async-Grenzen gehalten
+- [ ] Xrm.WebApi nutzt \$select, Begrenzung/Paging und Promise-Fehlerbehandlung
+- [ ] Keine Secrets im Clientcode und keine Dev-Builds in Dataverse
 `,
         "cloud-flow": `
 ## Cloud Flow Checks

@@ -92,7 +92,8 @@ Order of implementation preference (earlier = preferred):
 5. Plugins / custom APIs (C#) â€“ only with ADR justification
 
 **Plugin ground rules (ORBIS):**
-- C# .NET Framework 4.6.2 (max. supported version), \`ORBIS.Core.Plugin\` NuGet.
+- Use the repository target framework and currently supported Dataverse runtime.
+  Use \`ORBIS.Core.Plugin\` when it is the project standard and adds concrete value.
 - Sandbox-compatible: no SQL, reflection, registry, filesystem, IP-based calls.
 - Prefer late binding (\`new Entity()\`); early binding only in customer projects with
   limited properties.
@@ -116,7 +117,9 @@ Order of implementation preference (earlier = preferred):
 ## 6. Quality & Documentation
 
 - Solution checker without errors (error severities are blocking) before every export.
-- Unit tests with 80%+ coverage for plugins; FakeXrmEasy for complex tests.
+- Risk-based tests for changed plug-in, Custom API, TypeScript and PCF behavior;
+  coverage is supporting evidence, not a substitute for assertions. Fake Xrm Easy is
+  optional community tooling rather than a mandatory architecture choice.
 - **Performance**: features that touch high-volume tables (>50k rows) or run in
   bulk (import, integration) get an explicit performance check (pp-test-dataverse) â€“
   plugin execution budget, API/throttling limits, indexed filter columns.
@@ -146,8 +149,8 @@ Order of implementation preference (earlier = preferred):
   time), build/test before review, automation (ESLint, static analysis).
 - **Review protocol**: per PR from \`templates/pr-review-template.md\` to
   \`reviews/<feature-slug>/PR-<number>.md\`.
-- **Finding severities**: \`BLOCKER\` (fix before merge), \`MAJOR\` (fix before prod),
-  \`MINOR\` (follow-up). No approval with an open BLOCKER â€“ exceptions only via ADR.
+- **Finding severities**: \`CRITICAL\`, \`HIGH\`, \`MEDIUM\`, \`LOW\`, \`SUGGESTION\`.
+  Only high-confidence CRITICAL/HIGH findings block approval.
 - **Review gate before converge**: \`pp-converge-validate\` may only set "Converged"
   after a documented review result.
 
@@ -245,7 +248,7 @@ Create or update \`constitution/pp-constitution.md\` with:
 4. **Low-code before code-first** â€“ order: configuration â†’ flow â†’ Power Fx â†’ PCF â†’ plugin
    (plugin/PCF only with ADR)
 5. **Security & DLP** â€“ never secrets in code, least privilege, Key Vault, connector governance
-6. **Quality** â€“ solution checker without errors before export, ADR obligation, 80%+ plugin coverage
+6. **Quality** â€“ solution checker gate, ADR obligation, risk-based tests for changed behavior
 7. **ALM** â€“ solution-as-code (\`pac solution unpack\`), PR obligation, deployments via pipeline only
 
 ## Rules
@@ -274,7 +277,7 @@ Checks whether implementation and specification have converged. Corresponds to
 4. **Constitution compliance** â€“ ORBIS naming, publisher prefix, environment variable
    definitions / connection references, no secrets, DLP-compliant connectors
 5. **Review gate (Â§8)** â€“ documented PR review in \`reviews/<feature-slug>/\` with the
-   decision "Approved"; no open BLOCKER or MAJOR
+   decision "Approved"; no open CRITICAL or HIGH finding
 6. **ADR completeness (Â§9)** â€“ every mandatory decision has an ADR in \`docs/adr/\`
    with an index entry; code-first components link their ADR; ADR verification
    criteria are met
@@ -530,16 +533,20 @@ Implements client-side logic on forms â€“ TypeScript-first, as web resource
    on validation errors); register events in the form designer or by code
    (with execution context as first parameter)
 3. **Xrm API** â€“ \`formContext\` instead of the deprecated \`Xrm.Page\`; \`Xrm.WebApi\` for
-   data operations (async/await)
+   data operations (async/await) with explicit \`$select\`, bounded collection
+   retrieval/paging and Promise rejection handling
 4. **Ribbon/commanding** â€“ declarative enable/display rules where possible;
    JS actions only for complex logic
 
 ## Rules
 
 - NO unsupported DOM access (no \`document.getElementById\` on form fields).
+- No \`window.top\`, synchronous XHR, or retaining form/execution context across
+  asynchronous boundaries.
 - Async code on OnSave only with \`preventDefaultOnError\` / async OnSave pattern.
 - Every web resource belongs in the solution and the repo (unpacked).
-- Linting (ESLint) clean; \`no-console\` active.
+- Typecheck and project-aware ESLint clean; generated output is excluded from
+  handwritten-code review.
 - No secrets in client code (client code is always visible â€“ Constitution Â§5).
 `,
   "pp-implement-pcf": `---
@@ -563,22 +570,27 @@ Builds custom UI components with the Power Apps Component Framework.
 2. **Manifest** â€“ \`ControlManifest.Input.xml\`: property types, resource paths,
    feature-usage (only needed features)
 3. **Implementation** â€“ cleanly implement \`init/updateView/destroy/getOutputs\`;
-   React: use Fluent UI 9; no direct DOM access outside the container
+   React: use Fluent UI 9; no direct DOM access outside the container; \`destroy\`
+   removes listeners, observers, timers and rendered roots
 4. **Localization** â€“ resx resources instead of hardcoded text
 5. **Build & push** â€“ \`pac pcf push\` to the Dev environment; then bind the control
    to the field/dataset
 
 ## Rules
 
-- Keep \`updateView\` idempotent; no state mutation outside \`notifyOutputChanged\`.
-- Performance: no heavy libraries without justification; watch bundle size.
-- ESLint clean (\`npm run lint\`), unit tests with Jest/React Testing Library where sensible.
+- Keep \`updateView\` repeatable and null-safe; avoid unnecessary Web API calls,
+  dataset refreshes, renders and \`notifyOutputChanged\` calls.
+- Performance: no heavy libraries without measured justification; watch bundle size.
+- Typecheck and type-aware ESLint clean; lifecycle, cleanup, output notification and
+  accessibility tests with Jest/Vitest/React Testing Library where sensible.
 - No secrets in the client bundle (client code is always visible â€“ Constitution Â§5).
 - Sync control version in the manifest with the solution version.
+- Deploy production builds only; generated manifest types and bundles are not reviewed
+  as handwritten source.
 `,
   "pp-implement-plugin": `---
 name: pp-implement-plugin
-description: "Implements Dataverse plugins and custom APIs in C# to ORBIS standards (ORBIS.Core.Plugin, .NET 4.6.2, late binding, sandbox). WHEN: plugin, C# code, custom API, server-side logic, complex transaction, performance-critical logic, flow not sufficient. ONLY with ADR justification (Constitution Â§4). PHASE 3."
+description: "Implements Dataverse plugins and custom APIs in C# to ORBIS standards (project-compatible runtime, optional ORBIS.Core.Plugin, late binding, sandbox). WHEN: plugin, C# code, custom API, server-side logic, complex transaction, performance-critical logic, flow not sufficient. ONLY with ADR justification (Constitution Â§4). PHASE 3."
 ---
 
 # pp-implement-plugin
@@ -593,9 +605,11 @@ last escalation level per Constitution Â§4 (low-code before code-first).
 
 ## Mission (ORBIS rules)
 
-1. **Project** â€“ .NET Framework **4.6.2** (max. supported version),
-   use \`ORBIS.Core.Plugin\` NuGet, signed assembly, one assembly per entity/topic
-   (no mega-assemblies)
+1. **Project** â€“ use the repository target framework and currently supported Dataverse
+   runtime; do not force a framework version from a generic rule. Use
+   \`ORBIS.Core.Plugin\` when it is the project standard and provides concrete value;
+   direct \`IPlugin\` implementations remain valid. Keep assemblies cohesive
+   (no mega-assemblies).
 2. **Plugin class** â€“ inherit from \`PluginBase\`, keep \`Execute(IContext context)\` short:
 
    \`\`\`csharp
@@ -618,20 +632,24 @@ last escalation level per Constitution Â§4 (low-code before code-first).
 3. **Binding** â€“ **prefer late binding** (\`new Entity()\`); early binding only in
    customer projects and only with limited properties
 4. **Sandbox compatibility** â€“ NO: SQL, reflection, registry, filesystem, IP-based calls
-5. **Registration** â€“ message/stage/mode; **minimal triggering attributes** (mandatory);
-   async where possible; respect the **2-minute timeout**
+5. **Registration** â€“ validate message/table/stage/mode, Target type and image names/
+   columns against code; **minimal triggering attributes** are mandatory for Update;
+   async where possible. The **2-minute timeout is a failure ceiling, not a budget**.
 6. **Configuration** â€“ JSON/XML in unsecure/secure configuration; sensitive values in
    **secure configuration** + \`ORBIS.Core.Plugin.Cryptography\` (Constitution Â§5)
-7. **Error handling** â€“ \`InvalidPluginExecutionException\` with a business-readable message;
-   **no excessive tracing**, but use \`ITracingService\` for diagnostic paths
+7. **Error handling** â€“ \`InvalidPluginExecutionException\` for controlled failures;
+   unexpected exceptions retain diagnostic context. Trace correlation/request ID and
+   elapsed checkpoints, but never whole payloads, tokens or personal data.
 
 ## Don'ts (ORBIS)
 
-- No global/static variables holding context/service
+- No mutable instance/static fields holding context, service, entity or request state
 - No ILMerge
-- No \`var\` for basic data types
-- No LINQ for direct data queries
-- No depth dependency
+- No \`Task.Run\`, \`Task.WhenAll\`, \`Parallel.*\`, threads or fire-and-forget work
+- No \`ExecuteMultipleRequest\` / \`ExecuteTransactionRequest\` inside plug-ins
+- No \`ColumnSet(true)\`, \`AllColumns\` or unbounded query/loop
+- No generic depth dependency as recursion prevention
+- No privilege elevation without an explicit authorization reason
 
 ## Rename/delete a plugin (ORBIS procedure)
 
@@ -641,8 +659,11 @@ last escalation level per Constitution Â§4 (low-code before code-first).
 
 ## Rules
 
-- Unit tests with 80%+ coverage; FakeXrmEasy for complex tests (skill pp-test-dataverse).
-- No synchronous external web calls (timeout) â†’ async or Azure Function/custom API.
+- Risk-based tests for pipeline, partial Target, images, identity, controlled failures and
+  regressions; coverage is supporting evidence. Fake Xrm Easy is optional community tooling.
+- Prefer Target/minimal images over a redundant Retrieve and update only changed attributes.
+- Synchronous external calls require a short explicit timeout and transaction-safe failure
+  behavior; long/nontransactional work belongs in async processing or an external worker.
 - Registration belongs in the solution (visible unpacked in the repo).
 `,
   "pp-lessons-learned": `---
@@ -657,7 +678,7 @@ Every notable event can become a lesson.
 
 ## When to capture
 
-- An **error** occurred (build fail, checker violation, failed import, review BLOCKER)
+- An **error** occurred (build fail, checker violation, failed import, CRITICAL/HIGH review finding)
 - An **inefficiency** appeared (wasted turns, rework, slow path)
 - Something **worked well** (reinforce and repeat it)
 - A **gap** was found (missing skill/template/rule)
@@ -744,7 +765,8 @@ Create \`specs/<feature-slug>/plan.md\` from \`templates/solution-plan-template.
    connection reference + environment variable definition
 6. **Security** â€“ security roles (Base + Addon pattern), FLS for sensitive columns,
    DLP-compliant connectors, Key Vault for secrets
-7. **Test strategy** â€“ unit (FakeXrmEasy), UI (Playwright), acceptance tests from spec ACs
+7. **Test strategy** â€“ risk-based unit/component tests, UI tests where valuable,
+   acceptance tests from spec ACs, and targeted environment smoke tests
 
 ## Rules
 
@@ -772,28 +794,42 @@ For every pull request:
 2. **Work through the checklist** â€“ \`templates/code-review-checklist.md\`:
    spec conformance (ACs met?), constitution (ORBIS naming, prefix, environment
    variables, no secrets, DLP), solution diff plausibility (unpacked XMLs),
-   code quality (plugins: tracing/exceptions; JS: no DOM hacks; PCF: updateView
-   idempotent), tests present and green
-3. **Document findings** â€“ classify findings by severity:
-   - \`BLOCKER\` â€“ must be fixed before merge
-   - \`MAJOR\` â€“ fix before prod deployment
-   - \`MINOR\` â€“ follow-up task allowed
-4. **Decision** â€“ \`Approved\` (no open BLOCKER/MAJOR) or \`Changes requested\`
+   code quality plus relevant registration metadata:
+   - plug-ins/Custom APIs: message/table/stage/mode, Target/images, identity,
+     filtering attributes, bounded queries, no concurrency/batch requests
+   - TypeScript: supported Client API, bounded \`Xrm.WebApi\`, async context lifetime
+   - PCF: repeatable/null-safe \`updateView\`, cleanup, output/render frequency
+   - tests and repository-native analyzers present and green
+3. **Document findings** â€“ every finding has confidence, exact location/component,
+   concrete failure path, Dataverse impact, evidence, smallest safe fix and verification.
+   Classify severity:
+   - \`CRITICAL\` â€“ credential exposure, authorization bypass, destructive corruption
+   - \`HIGH\` â€“ transaction/pipeline/concurrency/recursion/privilege or production ALM defect
+   - \`MEDIUM\` â€“ realistic reliability/performance/cleanup/error-handling defect
+   - \`LOW\` â€“ maintainability problem with a concrete future cost
+   - \`SUGGESTION\` â€“ optional/style only; never blocking
+4. **Decision** â€“ \`Approved\` (no open CRITICAL/HIGH) or \`Changes requested\`
    with concrete feedback per finding (artifact + line/location)
 
 ## Rules
 
 - Reviewer != author (four-eyes principle); Copilot-generated artifacts are always
   reviewed by a human.
-- ORBIS best practices: constructive and positive wording, ask open questions, praise
-  good solutions; review max. 60 minutes at a time; code was built and tested before
-  the review; use automation (ESLint, static analysis).
+- Optimize in order: correctness/data integrity, security, transaction safety/performance,
+  reliability/observability, maintainability, then style.
+- Publish blocking findings only with high confidence. Low-confidence observations become
+  verification questions; optional improvements stay separate.
+- Review source, tests and relevant unpacked solution/registration metadata together.
+- Run the smallest relevant build/tests, configured Roslyn/.NET analyzers, TypeScript
+  typecheck/type-aware ESLint, production PCF build and Solution Checker when available.
+- Prefer the smallest safe correction; do not prescribe a framework, architecture rewrite,
+  dependency or ADR without demonstrated need.
 - Every spec acceptance criterion is recorded in the review protocol with a status
   (met / open / n.a.).
 - Solution XML diffs: check for unwanted deletions and foreign components.
-- No approval with an open BLOCKER â€“ no exceptions without an ADR.
+- No approval with an open CRITICAL/HIGH finding.
 - The result is referenced as mandatory evidence in \`pp-converge-validate\`.
-- Every BLOCKER/MAJOR finding is also logged as a lesson via \`pp-lessons-learned\`
+- Every CRITICAL/HIGH finding is also logged as a lesson via \`pp-lessons-learned\`
   (type \`error\` or \`improvement\`) so the review itself teaches the harness.
 `,
   "pp-skill-updater": `---
@@ -915,7 +951,7 @@ Create \`specs/<feature-slug>/tasks.md\` from \`templates/tasks-template.md\`.
 `,
   "pp-test-dataverse": `---
 name: pp-test-dataverse
-description: "Creates and runs tests: unit tests for plugins (FakeXrmEasy), UI tests (Playwright), acceptance tests from spec criteria. WHEN: write tests, FakeXrmEasy, Playwright, UI test, test plugin, regression test, acceptance test. PHASE 4, before pp-converge-validate."
+description: "Creates and runs risk-based tests for Dataverse plugins, Custom APIs, TypeScript, PCF and acceptance criteria; optionally uses Fake Xrm Easy and Playwright when they fit the repository. WHEN: write tests, FakeXrmEasy, Playwright, UI test, test plugin, PCF lifecycle test, regression test, acceptance test. PHASE 4, before pp-converge-validate."
 ---
 
 # pp-test-dataverse
@@ -924,27 +960,33 @@ Secures the solution with tests â€“ derived from the acceptance criteria of
 
 ## Test levels
 
-1. **Unit tests (plugins)** â€“ FakeXrmEasy (v9 package for Dataverse):
-   mock the plugin context, set target/images, verify service calls;
-   every plugin task from \`tasks.md\` needs at least a happy path + an error case.
-   Target: 80%+ coverage (ORBIS).
+1. **Unit tests (plugins/Custom APIs)** â€“ use repository-native fakes/mocks; Fake Xrm
+   Easy is an optional community option. Cover the changed behavior and risk:
+   happy path, partial/missing Target, registration mismatch, image contract,
+   changed/unchanged values, identity/authorization, expected failures and regression.
 2. **UI tests (model-driven app)** â€“ Playwright:
    - login via stored storage state (set up MFA-safe)
    - critical paths: create record â†’ business rules â†’ verify flow trigger
    - selectors: \`data-id\` attributes of MDA controls, no CSS classes
 3. **Acceptance tests** â€“ one executable check per spec AC (manually scripted or
    automated); the result is referenced in \`pp-converge-validate\`
-4. **Performance tests** (only for high-volume/bulk features, Constitution Â§6) â€“
+4. **Performance tests** (only for high-volume/bulk or synchronous critical features) â€“
    load a representative data volume (>50k rows) in a test environment, measure
-   plugin execution time against the 2-minute sandbox budget, verify filtered
-   views/queries use indexed columns, and check for API throttling limits
-   (bulk create/update via \`ExecuteMultiple\`/batch instead of row-by-row calls).
+   synchronous latency against a requirement-based budget far below the two-minute
+   failure ceiling, verify filtered views/queries use selected/indexed columns, and
+   check service-protection limits. Batch APIs are for external clients/workers, never
+   for in-transaction plug-ins.
 
 ## Rules
 
 - Tests run against a dedicated test/UAT environment, never against prod.
 - Create test data deterministically and clean it up (setup/teardown).
 - Flaky UI tests: explicit waits (\`expect(locator).toBeVisible()\`), no \`waitForTimeout\`.
+- PCF tests cover repeated/null \`updateView\`, cleanup in \`destroy\`, output notification,
+  rendering and accessibility.
+- Add a small environment smoke test where registration, import, security or platform
+  behavior cannot be proven by isolated tests.
+- Coverage reports support review but no arbitrary percentage replaces risk-focused tests.
 - Test projects in the repo: \`tests/unit/\`, \`tests/ui/\`.
 `
 };
