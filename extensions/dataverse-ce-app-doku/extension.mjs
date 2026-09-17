@@ -199,32 +199,50 @@ Sicherheitsgründen im Regelfall \`false\`), \`D365_MD_HEADER_TITLE\` /
   zusätzlicher, optionaler Analyseschritt behandelt und als solcher
   gekennzeichnet werden.
 
-### 2.4 Output-Format und PDF-Pipeline (nicht: HTML-Viewer)
+### 2.4 Output-Format von ORBIS.PluginDoc selbst (Referenz) vs. Output-Format dieser Skill
 
-- Alle Komponenten landen in **einer** \`outputMarkdown.md\` mit Pandoc/
-  eisvogel-kompatiblem YAML-Header (Titel, Keywords, Autor, Papierformat,
-  Logo, eigene TOC-Seite). Überschriftenreihenfolge: Plugin Documentation →
-  Modern Workflow Documentation → Business Rule Documentation (Backend) →
-  Classic Workflow Documentation → Script Documentation (Reihenfolge richtet
-  sich danach, welche \`Show*\`-Flags aktiv sind und in welcher Reihenfolge
-  \`Program.Main\` sie abarbeitet).
-- Pro Workflow (Classic + Modern) entsteht zusätzlich eine \`<Name>.mmd\`-Datei
-  im Arbeitsverzeichnis (Dateiname bereinigt von Sonderzeichen).
-- CI/CD (\`azure-pipelines.yml\`, Ubuntu-Agent) bzw. lokale Alternative
-  (\`Scripts/1setWorkingDirectory.ps1\` … \`4createPDFfromMarkdown.ps1\`):
-  1. \`.NET RESTORE\` + \`.NET RUN\` des Tools mit allen \`D365_*\`-Env-Vars →
-     erzeugt \`outputMarkdown.md\` + \`*.mmd\`.
-  2. Für jede \`.mmd\`-Datei: \`docker run minlag/mermaid-cli\` → PDF (bzw. PNG
-     lokal), optional zusätzlich in einen \`ORBIS.ProcessDoc_Flowcharts\`-Ordner
-     kopiert.
-  3. Regex-Nachbearbeitung von \`outputMarkdown.md\`: fehlende PDF-Referenzen
-     (falls ein \`.mmd\` nicht gerendert werden konnte) werden durch einen
-     Platzhaltertext ersetzt, damit der Pandoc-Lauf nicht bricht.
-  4. \`docker run dalibo/pandocker --template=eisvogel --pdf-engine=xelatex\`
-     → finale PDF-Datei, als Pipeline-Artefakt veröffentlicht.
-- **Es gibt in ORBIS.PluginDoc keinen HTML-Viewer.** Falls für diese Skill ein
-  interaktiver Viewer gewünscht ist, ist das eine bewusste Erweiterung
-  (Abschnitt 6) und sollte als solche im Dokument/ADR kenntlich gemacht werden.
+ORBIS.PluginDoc selbst erzeugt **eine** \`outputMarkdown.md\` mit Pandoc/eisvogel-
+kompatiblem YAML-Header (Titel, Keywords, Autor, Papierformat, Logo, eigene
+TOC-Seite) sowie pro Workflow (Classic + Modern) eine eigene \`<Name>.mmd\`-Datei
+im Arbeitsverzeichnis (Dateiname bereinigt von Sonderzeichen). Überschriften-
+reihenfolge im Original-Tool: Plugin Documentation → Modern Workflow
+Documentation → Business Rule Documentation (Backend) → Classic Workflow
+Documentation → Script Documentation (abhängig von den aktiven \`Show*\`-Flags
+und der Abarbeitungsreihenfolge in \`Program.Main\`). Anschließend konvertiert
+die tool-eigene CI/CD-Pipeline (\`azure-pipelines.yml\`, Ubuntu-Agent) bzw. die
+lokale Alternative (\`Scripts/1setWorkingDirectory.ps1\` … \`4createPDFfromMarkdown.ps1\`)
+jede \`.mmd\`-Datei per \`docker run minlag/mermaid-cli\` zu einem PDF/PNG-Bild
+und bindet dieses Bild über \`\`\`{=latex}\\includegraphics\`\`\`-Blöcke in die
+finale PDF ein (\`docker run dalibo/pandocker --template=eisvogel\`). Das ist
+der Weg, den das Original-Tool geht, **aber nicht der von dieser Skill
+standardmäßig erzeugte Output** (siehe Abschnitt 6).
+
+**Für diese Skill ist der Standard-Output eine Markdown-Datei, in der jedes
+Mermaid-Diagramm als natives \`\`\`mermaid ... \`\`\`-Codeblock eingebettet ist**
+(nicht als gerendertes Bild/PDF). Der Inhalt jeder \`<WorkflowName>.mmd\`-Datei
+aus einem ORBIS.PluginDoc-Lauf wird dafür 1:1 in einen solchen Codeblock
+übernommen — kein Docker/mermaid-cli/Pandoc-Schritt nötig, um die Doku
+lesbar zu machen. Das funktioniert direkt in GitHub/Azure-DevOps-Wikis,
+VS-Code-Preview und im optionalen HTML-Viewer (Abschnitt 6), die alle
+Mermaid-Codeblöcke selbst rendern.
+
+### 2.4a Betriebsmodi: Live-Lauf vs. Wiederverwendung eines vorhandenen Exports
+
+Zwei gleichwertige Wege, an die Rohdaten aus Abschnitt 2.3 zu kommen:
+
+1. **Live-Lauf durch den Nutzer**: \`dotnet restore\` + \`dotnet run\` (bzw. die
+   bereits gebaute \`bin/Debug/<tfm>/ORBIS.PluginDoc.exe\`) mit den Env-Vars aus
+   Abschnitt 2.2 gegen eine echte Dataverse-Organisation ausführen (siehe
+   Abschnitt 2.5 für den Umgang mit Zugangsdaten). Ergebnis: \`outputMarkdown.md\`
+   + \`*.mmd\`-Dateien im Arbeitsverzeichnis.
+2. **Wiederverwendung eines bereits vorhandenen Exports**: Der Nutzer stellt
+   ein zuvor erzeugtes \`outputMarkdown.md\` + zugehörige \`*.mmd\`-Dateien
+   bereit (z. B. aus einem früheren Pipeline-Lauf/Artefakt). Diese werden
+   direkt geparst, ohne das Tool erneut auszuführen.
+
+In beiden Fällen ist das Ergebnis für Abschnitt 3 identisch: eine
+Rohdatenbasis (Tabelleninhalte + Mermaid-Quelltext je Workflow), die in die
+kombinierte Ziel-Markdown-Datei überführt wird.
 
 ### 2.5 Vorgehen, wenn kein fertiger Lauf vorliegt
 
@@ -341,22 +359,42 @@ statt sie neu zu erstellen; nur bei fehlenden/fehlerhaften Diagrammen
 (\`hasException = true\`) manuell nachbauen. Risikobehaftete Knoten farblich
 markieren, z. B. \`style X fill:#f8d7da,stroke:#c0392b,color:#7a1f10\`.
 
-## 6. Ausgabeformat wählen: PDF-Pipeline (Tool-nativ) vs. lokaler HTML-Viewer (Erweiterung)
+## 6. Zielformat: Markdown-Datei mit eingebetteten Mermaid-Diagrammen (+ optionale HTML-Seite)
 
-ORBIS.PluginDoc selbst erzeugt PDFs über Docker/Pandoc/eisvogel (Abschnitt 2.4).
-Für diese kombinierte Doku (Solution + ORBIS.PluginDoc) den Nutzer fragen,
-welches Zielformat gewünscht ist, falls nicht bereits klar:
-- **PDF wie im Original-Tool**: die kombinierte Markdown-Datei im selben
-  Pandoc/eisvogel-YAML-Header-Format ausgeben und, falls Docker verfügbar ist,
-  dieselbe \`mermaid-cli\`-/\`pandocker\`-Kette wie in Abschnitt 2.4 nutzen.
-- **Lokaler HTML-Viewer** (identische Vorgehensweise wie in der Canvas-App-
-  Skill \`powerapps_dataverse_doku_guidelines\`, Abschnitt 5 dort): \`marked@4.3.0\`
-  + \`mermaid.js\` lokal vendort, Sidebar-TOC, Doppel-Lademodus für \`file://\`
-  via Base64-Textarea, DOMContentLoaded-Absicherung, markenkonformes
-  Mermaid-Theme, UTF-8-Encoding-Check. Diese Option ist praktischer, wenn kein
-  Docker verfügbar ist oder schnelles Durchsuchen wichtiger ist als ein
-  archivierbares PDF.
-- Beide Optionen sind nicht exklusiv — bei Bedarf beide erzeugen.
+**Standard-Output dieser Skill ist NICHT die Docker/Pandoc/eisvogel-PDF-Kette
+des Original-Tools**, sondern:
+
+1. **Eine einzelne, zusammenhängende \`doku.md\`** (oder ähnlich benannt), die
+   die komplette Gliederung aus Abschnitt 3 enthält. Jedes Mermaid-Diagramm
+   (ER-Diagramm aus dem Datenmodell, Systemlandschaft, Prozess-Flowcharts,
+   sowie die pro Workflow aus ORBIS.PluginDoc übernommenen \`.mmd\`-Inhalte,
+   Abschnitt 2.4) wird als natives
+   \`\`\`mermaid
+   graph LR
+       A --> B
+   \`\`\`
+   -Codeblock **direkt im Markdown** eingebettet — nicht als Bild-Datei, nicht
+   als PDF-Include. Das macht die Datei in jedem Markdown-Renderer, der
+   Mermaid unterstützt (GitHub, Azure DevOps Wiki, VS Code Preview, der
+   HTML-Viewer unten), sofort lesbar, ohne Docker/Zusatztools.
+2. **Optional zusätzlich eine lokal gehostete HTML-Seite** (\`doku-site/index.html\`),
+   wenn der Nutzer eine interaktive/durchsuchbare Ansicht wünscht. Hierfür
+   **exakt dieselbe Vorgehensweise wie in der Canvas-App-Skill**
+   (\`powerapps_dataverse_doku_guidelines\`, Abschnitt 5 dort) wiederverwenden/
+   anpassen, damit beide Doku-Typen optisch und funktional konsistent sind:
+   - \`marked@4.3.0\` + \`mermaid.js\` lokal vendort (kein CDN)
+   - Sidebar mit automatisch generiertem Inhaltsverzeichnis (aus h1/h2/h3), Suche
+   - Jedes Mermaid-Diagramm mit "🔍 Vergrößern"-Button/Zoom-Modal
+   - Doppelter Lademodus: \`fetch('doku.md')\` bei Server-Betrieb, sonst
+     eingebettetes Base64-\`<textarea>\` für \`file://\`-Doppelklick-Öffnen, mit
+     \`DOMContentLoaded\`-Absicherung (siehe Fallen in der Canvas-App-Skill)
+   - Markenkonformes Mermaid-\`theme: 'base'\` mit eigenen \`themeVariables\`
+     statt Standard-Lila
+   - UTF-8-Encoding-Check (ä/ö/ü/– korrekt, keine Mojibake)
+3. **Kein Docker, kein Pandoc, kein \`eisvogel\`-PDF wird für diese Skill
+   benötigt.** Falls ein Nutzer ausdrücklich zusätzlich eine PDF im Stil des
+   Original-Tools möchte, ist das eine optionale dritte Ausgabe (Abschnitt 2.4)
+   und sollte explizit erfragt werden, statt sie standardmäßig zu erzeugen.
 
 ## 7. Typischer Ablauf für einen neuen Auftrag
 
@@ -365,14 +403,17 @@ welches Zielformat gewünscht ist, falls nicht bereits klar:
    inhaltlich weitergearbeitet wird.
 2. Solution-Export entpacken/parsen (Abschnitt 1): Datenmodell, Formulare,
    Ribbon, Sicherheit, App-Struktur.
-3. \`outputMarkdown.md\`/\`*.mmd\` aus dem ORBIS.PluginDoc-Lauf einlesen und nach
-   Komponententyp strukturieren (Abschnitt 2.3); Konfiguration des Laufs
-   (aktive \`Show*\`-Flags, Filter) für Kapitel 1/13 notieren.
+3. \`outputMarkdown.md\`/\`*.mmd\` aus dem ORBIS.PluginDoc-Lauf (Live-Lauf oder
+   vorhandener Export, Abschnitt 2.4a) einlesen und nach Komponententyp
+   strukturieren (Abschnitt 2.3); Konfiguration des Laufs (aktive
+   \`Show*\`-Flags, Filter) für Kapitel 1/13 notieren.
 4. Script-Dependencies (Quelle 2) mit FormXml-Events (Quelle 1) abgleichen
    (Kapitel 7/8), Abweichungen dokumentieren.
-5. MD-Datei nach der Gliederung aus Abschnitt 3 befüllen, offene Punkte
-   markieren, ADRs ableiten (Abschnitt 4).
-6. Ausgabeformat gemäß Abschnitt 6 mit dem Nutzer klären und erzeugen.
+5. Die kombinierte \`doku.md\` nach der Gliederung aus Abschnitt 3 befüllen —
+   alle Mermaid-Inhalte als eingebettete Codeblöcke (Abschnitt 6), offene
+   Punkte markieren, ADRs ableiten (Abschnitt 4).
+6. Falls gewünscht: den HTML-Viewer gemäß Abschnitt 6.2 bauen/aktualisieren
+   und \`doku.md\` nach jeder Änderung in \`doku-site/\` synchronisieren.
 7. Testkonzept, Onboarding-Pfad und Übergabecheckliste ergänzen.
 8. Bei Aktualisierung: Hinweis dokumentieren, dass ein erneuter
    ORBIS.PluginDoc-Lauf (bzw. neuer Solution-Export) die Grundlage für die
@@ -384,7 +425,7 @@ const session = await joinSession({
         {
             name: "dataverse_ce_app_doku_guidelines",
             description:
-                "Gibt die vollständigen, gegen den echten Quellcode von ORBIS.PluginDoc (Azure-DevOps-Repo ORBIS.ProcessDoc) verifizierten Richtlinien/Methodik zurück, um aus dem Solution-Export der Default-/Ziel-Solution einer Dynamics 365 CE (Dataverse) Model-Driven-App PLUS einem ORBIS.PluginDoc-Lauf (Live-Dataverse-Extraktion von Plugins/Classic-Workflows/Modern-Workflows/Business-Rules/Script-Webresources inkl. generierter Mermaid-Diagramme) eine vollständige technische Onboarding-Dokumentation zu erzeugen: erwartete Eingaben und Umgang mit fehlenden Live-Zugangsdaten, Extraktions-Workflow für Solution UND ORBIS.PluginDoc-Output, Abgleich Script-Dependencies mit FormXml-Events, 19-Kapitel-Gliederung inkl. Datenmodell/FormScripting/Ribbon/Plugins/Workflows/BusinessRules/Sicherheit/ALM, ADR-Format, Mermaid-Wiederverwendung und Wahl zwischen PDF-Pipeline (Docker/Pandoc/eisvogel, wie im Original-Tool) und optionalem lokalem HTML-Viewer. Verwenden, wenn eine technische Dokumentation für eine Dynamics 365 CE / Dataverse model-driven App (nicht Canvas App) erstellt oder aktualisiert werden soll, insbesondere wenn ein ORBIS.PluginDoc/ORBIS.ProcessDoc-Repository oder dessen Output als Quelle vorliegt.",
+                "Gibt die vollständigen, gegen den echten Quellcode von ORBIS.PluginDoc (Azure-DevOps-Repo ORBIS.ProcessDoc) verifizierten Richtlinien/Methodik zurück, um aus dem Solution-Export der Default-/Ziel-Solution einer Dynamics 365 CE (Dataverse) Model-Driven-App PLUS einem ORBIS.PluginDoc-Lauf (Live-Dataverse-Extraktion von Plugins/Classic-Workflows/Modern-Workflows/Business-Rules/Script-Webresources inkl. generierter Mermaid-Diagramme) eine vollständige technische Onboarding-Dokumentation als **Markdown-Datei mit eingebetteten Mermaid-Codeblöcken** (Standard-Zielformat dieser Skill) zu erzeugen, optional ergänzt um eine lokal gehostete HTML-Ansicht: erwartete Eingaben und Umgang mit fehlenden Live-Zugangsdaten, Live-Lauf vs. Wiederverwendung eines vorhandenen ORBIS.PluginDoc-Exports, Extraktions-Workflow für Solution UND ORBIS.PluginDoc-Output, Abgleich Script-Dependencies mit FormXml-Events, 19-Kapitel-Gliederung inkl. Datenmodell/FormScripting/Ribbon/Plugins/Workflows/BusinessRules/Sicherheit/ALM, ADR-Format, Mermaid-Wiederverwendung, sowie die optionale Docker/Pandoc/eisvogel-PDF-Pipeline des Original-Tools als Alternativausgabe. Verwenden, wenn eine technische Dokumentation für eine Dynamics 365 CE / Dataverse model-driven App (nicht Canvas App) erstellt oder aktualisiert werden soll, insbesondere wenn ein ORBIS.PluginDoc/ORBIS.ProcessDoc-Repository oder dessen Output als Quelle vorliegt.",
             parameters: { type: "object", properties: {} },
             handler: async () => GUIDELINES,
         },
