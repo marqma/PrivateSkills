@@ -1,0 +1,84 @@
+﻿{
+    "batch_id":  "batch-00001",
+    "event_count_analyzed":  4,
+    "observations":  [
+                         {
+                             "evidence":  [
+                                              {
+                                                  "event_id":  1,
+                                                  "source_file":  "plugintrace.csv",
+                                                  "event_time":  "2024-01-20T08:12:04.000000Z",
+                                                  "correlation_id":  "c1111111-1111-1111-1111-111111111111"
+                                              }
+                                          ],
+                             "description":  "4 Ereignisse im Batch: 2 Dataverse Plugin-Trace-Eintraege fuer contoso_order (Update) und 2 Application-Insights-Requests fuer denselben Vorgang."
+                         }
+                     ],
+    "hypotheses":  [
+                       {
+                           "supporting_evidence":  [
+                                                       {
+                                                           "event_id":  1
+                                                       }
+                                                   ],
+                           "description":  "Der externe Preisdienst koennte im Zeitfenster 08:12 Uhr ueberlastet gewesen sein.",
+                           "confidence":  "low"
+                       }
+                   ],
+    "confirmed_causes":  [
+                             {
+                                 "evidence":  [
+                                                  {
+                                                      "event_id":  1,
+                                                      "source_file":  "plugintrace.csv",
+                                                      "event_time":  "2024-01-20T08:12:04.000000Z",
+                                                      "correlation_id":  "c1111111-1111-1111-1111-111111111111"
+                                                  }
+                                              ],
+                                 "description":  "OrderPlugin.CallPricingService() ueberschreitet das konfigurierte Zeitlimit von 3000 ms beim Aufruf des externen Preisdienstes."
+                             }
+                         ],
+    "findings":  [
+                     {
+                         "fingerprint":  null,
+                         "id":  "pricing-service-timeout",
+                         "category":  "error",
+                         "evidence":  [
+                                          {
+                                              "event_id":  1,
+                                              "source_file":  "plugintrace.csv",
+                                              "event_time":  "2024-01-20T08:12:04.000000Z",
+                                              "correlation_id":  "c1111111-1111-1111-1111-111111111111"
+                                          }
+                                      ],
+                         "severity":  "high",
+                         "occurrence_count":  1,
+                         "observation":  "OrderPlugin (Update) wirft System.TimeoutException beim Aufruf des externen Preisdienstes; PerformanceExecutionDuration=3120ms.",
+                         "confirmed_cause":  "ExceptionDetails zeigt explizit die Ueberschreitung des 3000ms-Zeitlimits beim externen Preisdienst-Aufruf.",
+                         "impact":  "Auftragsaktualisierung schlaegt fehl; Endnutzer erhalten eine Fehlermeldung im Formular.",
+                         "title":  "Timeout beim externen Preisdienst",
+                         "hypothesis":  null
+                     }
+                 ],
+    "performance_notes":  {
+                              "slow_outliers_evidence":  [
+                                                             {
+                                                                 "event_id":  1
+                                                             }
+                                                         ],
+                              "duration_ms_percentiles":  {
+                                                              "p50":  1765,
+                                                              "p95":  3120
+                                                          }
+                          },
+    "fingerprints_seen":  [
+
+                          ],
+    "correlation_ids_seen":  [
+                                 "c1111111-1111-1111-1111-111111111111",
+                                 "c2222222-2222-2222-2222-222222222222"
+                             ],
+    "unresolved_questions":  [
+                                 "Ist das 3000ms-Zeitlimit des Preisdienstes konfigurierbar oder fest im Code hinterlegt?"
+                             ]
+}

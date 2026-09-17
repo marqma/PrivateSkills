@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "batch-summary.schema.json",
+  "title": "Power Platform Log Analyst - Batch Summary",
+  "description": "Structural shape enforced (at minimum) by `log_case.py batch put-summary` / `reduce put-summary`. The same shape (minus batch_id/pack_id specifics) is reused recursively for reduction-pack summaries.",
+  "type": "object",
+  "required": ["observations", "hypotheses", "confirmed_causes", "findings"],
+  "properties": {
+    "batch_id": { "type": "string", "description": "Required for batch summaries; must match the target --batch-id." },
+    "pack_id": { "type": "string", "description": "Required for reduction summaries; must match the target --pack-id." },
+    "level": { "type": "integer", "minimum": 1, "description": "Reduction level (reduction summaries only)." },
+    "members_covered": { "type": "array", "items": { "type": "string" }, "description": "Batch or lower-level pack IDs this reduction summary covers." },
+    "event_count_analyzed": { "type": "integer", "minimum": 0 },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["description"],
+        "properties": {
+          "description": { "type": "string" },
+          "evidence": { "type": "array", "items": { "$ref": "#/definitions/evidenceLocator" } }
+        }
+      }
+    },
+    "hypotheses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["description", "confidence"],
+        "properties": {
+          "description": { "type": "string" },
+          "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
+          "supporting_evidence": { "type": "array", "items": { "$ref": "#/definitions/evidenceLocator" } }
+        }
+      }
+    },
+    "confirmed_causes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["description", "evidence"],
+        "properties": {
+          "description": { "type": "string" },
+          "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/evidenceLocator" } }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/finding" }
+    },
+    "performance_notes": {
+      "type": "object",
+      "properties": {
+        "duration_ms_percentiles": { "type": ["object", "null"] },
+        "slow_outliers_evidence": { "type": "array", "items": { "$ref": "#/definitions/evidenceLocator" } }
+      }
+    },
+    "fingerprints_seen": { "type": "array", "items": { "type": "string" } },
+    "correlation_ids_seen": { "type": "array", "items": { "type": "string" } },
+    "unresolved_questions": { "type": "array", "items": { "type": "string" } }
+  },
+  "definitions": {
+    "evidenceLocator": {
+      "type": "object",
+      "properties": {
+        "event_id": { "type": ["integer", "string"] },
+        "correlation_id": { "type": ["string", "null"] },
+        "event_time": { "type": ["string", "null"] },
+        "source_file": { "type": ["string", "null"] }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "title", "severity", "category", "observation", "impact", "evidence"],
+      "properties": {
+        "id": { "type": "string", "description": "Stable slug; identical findings across batches/packs should reuse the same id/fingerprint so reduction can merge occurrence counts." },
+        "title": { "type": "string" },
+        "severity": { "type": "string", "enum": ["info", "low", "medium", "high", "critical"] },
+        "category": { "type": "string", "enum": ["error", "performance", "configuration", "data", "security", "other"] },
+        "observation": { "type": "string" },
+        "hypothesis": { "type": ["string", "null"] },
+        "confirmed_cause": { "type": ["string", "null"] },
+        "impact": { "type": "string" },
+        "occurrence_count": { "type": "integer", "minimum": 0 },
+        "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/evidenceLocator" } },
+        "fingerprint": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

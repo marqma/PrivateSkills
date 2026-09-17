@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "final-report.schema.json",
+  "title": "Power Platform Log Analyst - Final Report",
+  "description": "Structural shape enforced (at minimum) by `log_case.py report export`.",
+  "type": "object",
+  "required": ["case_id", "generated_at", "coverage", "executive_summary", "findings"],
+  "properties": {
+    "case_id": { "type": "string" },
+    "generated_at": { "type": "string", "description": "ISO8601 timestamp." },
+    "title": { "type": "string" },
+    "coverage": {
+      "type": "object",
+      "required": ["full_coverage_achieved"],
+      "description": "Must be copied verbatim from the `coverage` command output.",
+      "properties": {
+        "full_coverage_achieved": { "type": "boolean" },
+        "total_events": { "type": "integer" }
+      }
+    },
+    "scope_and_caveats": { "type": "array", "items": { "type": "string" } },
+    "executive_summary": { "type": "string" },
+    "performance_summary": {
+      "type": "object",
+      "properties": {
+        "duration_ms_percentiles": { "type": ["object", "null"] },
+        "baseline_comparison": { "type": ["string", "null"] },
+        "methodology_note": { "type": ["string", "null"] }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "severity", "category", "observation", "impact", "evidence", "recommendations"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "severity": { "type": "string", "enum": ["info", "low", "medium", "high", "critical"] },
+          "category": { "type": "string", "enum": ["error", "performance", "configuration", "data", "security", "other"] },
+          "observation": { "type": "string" },
+          "hypothesis": { "type": ["string", "null"] },
+          "confirmed_cause": { "type": ["string", "null"] },
+          "impact": { "type": "string" },
+          "occurrence_count": { "type": "integer", "minimum": 0 },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "properties": {
+                "event_id": { "type": ["integer", "string"] },
+                "source_file": { "type": ["string", "null"] },
+                "correlation_id": { "type": ["string", "null"] },
+                "event_time": { "type": ["string", "null"] }
+              }
+            }
+          },
+          "recommendations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["priority", "owner_role", "action", "expected_effect", "validation", "risk", "rollback"],
+              "properties": {
+                "priority": { "type": "string", "enum": ["P1", "P2", "P3", "P4"] },
+                "owner_role": { "type": "string" },
+                "action": { "type": "string" },
+                "expected_effect": { "type": "string" },
+                "validation": { "type": "string" },
+                "risk": { "type": "string" },
+                "rollback": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "appendix": {
+      "type": "object",
+      "properties": {
+        "batch_count": { "type": "integer" },
+        "reduction_root_pack_id": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
