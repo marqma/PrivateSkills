@@ -1,0 +1,15 @@
+﻿# Local and secret material
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+*.p12
+secrets.json
+credentials.json
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
