@@ -418,6 +418,70 @@ des Original-Tools**, sondern:
 8. Bei Aktualisierung: Hinweis dokumentieren, dass ein erneuter
    ORBIS.PluginDoc-Lauf (bzw. neuer Solution-Export) die Grundlage für die
    nächste Doku-Aktualisierung ist.
+
+## 8. Alternativer Modus: Kunden-Rollout-Dokumentation (Consulting-Template)
+
+Neben der technischen 19-Kapitel-Gliederung (Abschnitt 3, Zielgruppe:
+übernehmende Entwickler) unterstützt diese Skill einen zweiten Liefergegenstand:
+eine beratungsfähige **Kundendokumentation** mit Fokus auf Security-Konzept und
+Rollout-Vorbereitung, wie sie in Consulting-Projekten für Wissensübergabe an ein
+Kundenteam verlangt wird. Diesen Modus aktivieren, wenn der Auftrag explizit
+"Kundendokumentation", "Security-Konzept", "Rollout-Dokumentation" oder eine
+Rolle wie "Solution Architect/Functional Consultant" nennt — statt der
+technischen 19-Kapitel-Gliederung.
+
+Gliederung (Deutsch, Beratungsniveau; fachliche und technische Sicht je Kapitel
+klar trennen, z. B. "Für den Fachbereich" / "Für Administratoren"):
+
+1. Management Summary — Zweck der Lösung, geschäftlicher Nutzen,
+   Systemübersicht (**Mermaid \`graph LR\`**), wichtige Besonderheiten
+2. Lösungsarchitektur — Systemlandschaft, Umgebungen (Prod/Test/Repro; Solution-
+   Version/Publisher je Environment, falls bekannt, sonst "Zu prüfen"),
+   Integrationen, Datenflüsse, Abhängigkeiten
+3. Security-Konzept — Sicherheitsmodell (Business Units, Security Roles, Teams,
+   Benutzerkonzept, Ownership-Modell aus Quelle 1, \`Roles/\`/\`Teams/\` sofern im
+   Export enthalten); Berechtigungsmatrix als Tabelle (Rolle × Recht ×
+   Verantwortlichkeit); Feld- und Datensicherheit (Field Security Profiles,
+   Zugriffseinschränkungen, datenschutzrelevante Objekte); Empfehlungen für
+   Rollout und Governance
+4. Datenmodell — je relevanter Tabelle: Zweck, Besitzerkonzept, Beziehungen,
+   Schlüsselfelder, Pflichtfelder, kundenspezifische Felder (dieselben Fakten
+   wie Kapitel 5 aus Abschnitt 3, hier pro Tabelle statt als Gesamt-ER-Diagramm
+   aufbereitet; Gesamt-ER-Diagramm zusätzlich als Übersicht)
+5. Geschäftsprozesse — je erkennbarem Prozess (aus Sitemap/BPF/Formularen/
+   Workflows abgeleitet): fachlicher Zweck, Auslöser, Prozessschritte
+   (**Mermaid \`flowchart\`**), beteiligte Rollen, verwendete Tabellen,
+   Sonderlogiken, Abhängigkeiten
+6. Customizing-Übersicht — Formulare, Ansichten, Business Rules,
+   Geschäftsprozessflüsse, Dashboards, Apps, JavaScript, Plug-ins, Custom APIs,
+   Power-Automate-Flows; je Objekt Name/Zweck/technische Beschreibung/
+   Geschäftsrelevanz als Tabelle
+7. Automatisierungen — Workflows, Power Automate, Plug-ins mit Trigger,
+   Aktionen, Fehlerbehandlung (aus Quelle 2, Abschnitt 2.3)
+8. Rollout-relevante Informationen — Voraussetzungen, Organisations-
+   abhängigkeiten, Benutzeranlage, Rollenzuweisung, Trainingsbedarf, Risiken,
+   bekannte Einschränkungen
+9. Betriebskonzept — Administration, Wartung, Monitoring, Support-Prozesse,
+   Fehleranalyse (soweit aus Solution/Pipeline ableitbar, sonst "Offen")
+10. Offene Punkte und Empfehlungen — identifizierte Risiken, technische
+    Schulden, Optimierungspotenziale, Empfehlungen für zukünftige Rollouts
+
+Regeln für diesen Modus (zusätzlich zu Abschnitt 0/1/2):
+
+- Ausschließlich tatsächlich vorhandene Konfigurationen, Prozesse und
+  Sicherheitseinstellungen dokumentieren; keine Annahmen. Fehlende
+  Informationen oder Analyseergebnisse als "Offen" oder "Zu prüfen" markieren.
+- Tabellen für Berechtigungsmatrix, Customizing-Übersicht und Datenmodell
+  verwenden; Diagramme weiterhin als native Mermaid-Codeblöcke (Abschnitt 5/6).
+- Die Quellenlage aus Abschnitt 0 gilt unverändert: Security-Konzept und
+  Datenmodell stammen primär aus dem Solution-Export (Abschnitt 1);
+  Automatisierungen/Prozesslogik primär aus dem ORBIS.PluginDoc-Lauf
+  (Abschnitt 2). Ohne Solution-Export bleiben Security-Konzept und Datenmodell
+  größtenteils "Offen"; ohne ORBIS.PluginDoc-Lauf bleiben Automatisierungen
+  und Sonderlogiken größtenteils "Offen".
+- Zielformat und Ergebnisdatei wie Abschnitt 6 (z. B. \`kundendokumentation.md\`
+  statt \`doku.md\`); ADR-Format (Abschnitt 4) und Mermaid-Konventionen
+  (Abschnitt 5) gelten unverändert.
 `;
 
 const session = await joinSession({
@@ -425,7 +489,7 @@ const session = await joinSession({
         {
             name: "dataverse_ce_app_doku_guidelines",
             description:
-                "Gibt die vollständigen, gegen den echten Quellcode von ORBIS.PluginDoc (Azure-DevOps-Repo ORBIS.ProcessDoc) verifizierten Richtlinien/Methodik zurück, um aus dem Solution-Export der Default-/Ziel-Solution einer Dynamics 365 CE (Dataverse) Model-Driven-App PLUS einem ORBIS.PluginDoc-Lauf (Live-Dataverse-Extraktion von Plugins/Classic-Workflows/Modern-Workflows/Business-Rules/Script-Webresources inkl. generierter Mermaid-Diagramme) eine vollständige technische Onboarding-Dokumentation als **Markdown-Datei mit eingebetteten Mermaid-Codeblöcken** (Standard-Zielformat dieser Skill) zu erzeugen, optional ergänzt um eine lokal gehostete HTML-Ansicht: erwartete Eingaben und Umgang mit fehlenden Live-Zugangsdaten, Live-Lauf vs. Wiederverwendung eines vorhandenen ORBIS.PluginDoc-Exports, Extraktions-Workflow für Solution UND ORBIS.PluginDoc-Output, Abgleich Script-Dependencies mit FormXml-Events, 19-Kapitel-Gliederung inkl. Datenmodell/FormScripting/Ribbon/Plugins/Workflows/BusinessRules/Sicherheit/ALM, ADR-Format, Mermaid-Wiederverwendung, sowie die optionale Docker/Pandoc/eisvogel-PDF-Pipeline des Original-Tools als Alternativausgabe. Verwenden, wenn eine technische Dokumentation für eine Dynamics 365 CE / Dataverse model-driven App (nicht Canvas App) erstellt oder aktualisiert werden soll, insbesondere wenn ein ORBIS.PluginDoc/ORBIS.ProcessDoc-Repository oder dessen Output als Quelle vorliegt.",
+                "Gibt die vollständigen, gegen den echten Quellcode von ORBIS.PluginDoc (Azure-DevOps-Repo ORBIS.ProcessDoc) verifizierten Richtlinien/Methodik zurück, um aus dem Solution-Export der Default-/Ziel-Solution einer Dynamics 365 CE (Dataverse) Model-Driven-App PLUS einem ORBIS.PluginDoc-Lauf (Live-Dataverse-Extraktion von Plugins/Classic-Workflows/Modern-Workflows/Business-Rules/Script-Webresources inkl. generierter Mermaid-Diagramme) eine vollständige technische Onboarding-Dokumentation als **Markdown-Datei mit eingebetteten Mermaid-Codeblöcken** (Standard-Zielformat dieser Skill) zu erzeugen, optional ergänzt um eine lokal gehostete HTML-Ansicht: erwartete Eingaben und Umgang mit fehlenden Live-Zugangsdaten, Live-Lauf vs. Wiederverwendung eines vorhandenen ORBIS.PluginDoc-Exports, Extraktions-Workflow für Solution UND ORBIS.PluginDoc-Output, Abgleich Script-Dependencies mit FormXml-Events, 19-Kapitel-Gliederung inkl. Datenmodell/FormScripting/Ribbon/Plugins/Workflows/BusinessRules/Sicherheit/ALM, ADR-Format, Mermaid-Wiederverwendung, sowie die optionale Docker/Pandoc/eisvogel-PDF-Pipeline des Original-Tools als Alternativausgabe. Enthält zusätzlich einen alternativen Modus für eine beratungsfähige Kunden-Rollout-Dokumentation (Management Summary, Security-Konzept/Berechtigungsmatrix, Datenmodell, Geschäftsprozesse, Customizing-Übersicht, Automatisierungen, Rollout-Voraussetzungen, Betriebskonzept, offene Punkte). Verwenden, wenn eine technische oder kundenfähige Dokumentation für eine Dynamics 365 CE / Dataverse model-driven App (nicht Canvas App) erstellt oder aktualisiert werden soll, insbesondere wenn ein ORBIS.PluginDoc/ORBIS.ProcessDoc-Repository oder dessen Output als Quelle vorliegt.",
             parameters: { type: "object", properties: {} },
             handler: async () => GUIDELINES,
         },

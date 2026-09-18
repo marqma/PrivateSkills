@@ -183,12 +183,13 @@ const OVERVIEW = `Power Platform / Dynamics 365 CE Spec-Driven Code Factory - Pr
 
 Phases: Specify -> Plan -> Tasks -> Implement (Dataverse/App/Flow/Plugin/PCF/JS) ->
 Test -> Review (QA gate) -> Converge/Validate -> Export -> Git Integration ->
-Deploy (Pipeline) -> Monitor/Telemetry -> Continuous Improvement (Lessons Learned).
+Deploy (Pipeline) -> Document Solution (technical onboarding / customer rollout
+handover) -> Monitor/Telemetry -> Continuous Improvement (Lessons Learned).
 
 Governance: ADRs for key decisions (docs/adr/), QA reviews (reviews/), lessons
 captured continuously and triaged by pp-skill-updater to keep the harness improving.
 
-Use section='skills-list' to see all 20 skills, section='skill' with a skill name
+Use section='skills-list' to see all 21 skills, section='skill' with a skill name
 for its full content, or section='constitution' for the binding project rules.`;
 
 const SKILLS = {
@@ -335,6 +336,54 @@ Deploys the managed solution to test and prod environments â€“ exclusively 
 - Every prod deployment references the PR / release tag.
 - After a successful prod import: tag the version in the repo (\`v<version>\`).
 - Script: \`scripts/Import-Solution.ps1 -TargetEnvironment test|prod -Managed\`.
+`,
+  "pp-document-solution": `---
+name: pp-document-solution
+description: "Generates technical onboarding documentation or a customer-facing rollout/security handover document for a D365 CE / Dataverse model-driven app from the solution export plus an ORBIS.PluginDoc (ORBIS.ProcessDoc) run. WHEN: 'document solution', technical documentation, customer documentation, security concept, rollout documentation, knowledge transfer, FormScripting doc, data model doc, handover to customer team. USE ANYTIME after pp-converge-validate, and MANDATORY before customer handover / a new rollout wave."
+---
+
+# pp-document-solution
+
+Produces a complete, evidence-based documentation of the *current* solution
+state (not the spec/plan) â€“ either for developer onboarding or for customer
+knowledge transfer ahead of a rollout.
+
+## Mission
+
+1. **Load methodology** â€“ call the \`dataverse_ce_app_doku_guidelines\` tool (or,
+   if unavailable, read \`skills/dataverse-ce-app-doku/SKILL.md\` from the
+   \`PrivateSkills\` repo) before analysis. It is the binding, source-verified
+   methodology for this skill and MUST NOT be duplicated or reinvented here.
+2. **Collect the two independent inputs**:
+   - the unmanaged/managed export of this project's Dataverse solution
+     (\`solution/\` from \`pp-git-integration\`, or a fresh \`pac solution export\`),
+   - an ORBIS.PluginDoc (\`ORBIS.ProcessDoc\`) run â€“ live or a prior
+     \`outputMarkdown.md\` + \`*.mmd\` export â€“ for plugins, classic/modern
+     workflows, business rules and script dependencies.
+3. **Choose the mode** the requester needs:
+   - **technisch** (default) â€“ 19-chapter developer onboarding doc
+     (data model, FormScripting, ribbon, plugins, workflows, business rules,
+     security, ALM â€¦).
+   - **kunde** â€“ consulting-grade customer rollout/security handover doc
+     (Management Summary, solution architecture, security concept incl.
+     permission matrix, data model, business processes, customizing overview,
+     automations, rollout prerequisites, operations concept, open items).
+   Ask the requester if the mode is ambiguous.
+4. **Generate** \`doku.md\` (technisch) or \`kundendokumentation.md\` (kunde) with
+   embedded native \`mermaid\` code blocks, per the loaded methodology. Mark any
+   fact that cannot be evidenced from the two inputs as "Offen"/"Zu prüfen" â€“
+   never invent security roles, processes, or field names.
+
+## Rules
+
+- This skill never replaces \`pp-adr-governance\` (Â§9) or \`pp-lessons-learned\`
+  (Â§10) â€“ link to existing ADRs/lessons instead of restating them.
+- Redact secrets (plugin secure/unsecure config, connection strings) exactly as
+  the loaded methodology requires (Constitution Â§5).
+- Store the output under \`docs/\` (e.g. \`docs/doku.md\`, \`docs/kundendokumentation.md\`);
+  do not upload solution exports, tool output or credentials to third parties.
+- Re-run this skill whenever \`pp-export-solution\` produces a new version, so
+  the documentation never drifts from the deployed state.
 `,
   "pp-export-solution": `---
 name: pp-export-solution
@@ -991,7 +1040,7 @@ Secures the solution with tests â€“ derived from the acceptance criteria of
 `
 };
 
-const SKILL_NAMES = ['pp-adr-governance', 'pp-constitution', 'pp-converge-validate', 'pp-deploy-pipeline', 'pp-export-solution', 'pp-git-integration', 'pp-implement-app', 'pp-implement-dataverse', 'pp-implement-flow', 'pp-implement-js', 'pp-implement-pcf', 'pp-implement-plugin', 'pp-lessons-learned', 'pp-monitor-telemetry', 'pp-plan-solution', 'pp-review-code', 'pp-skill-updater', 'pp-specify', 'pp-tasks-breakdown', 'pp-test-dataverse'];
+const SKILL_NAMES = ['pp-adr-governance', 'pp-constitution', 'pp-converge-validate', 'pp-deploy-pipeline', 'pp-document-solution', 'pp-export-solution', 'pp-git-integration', 'pp-implement-app', 'pp-implement-dataverse', 'pp-implement-flow', 'pp-implement-js', 'pp-implement-pcf', 'pp-implement-plugin', 'pp-lessons-learned', 'pp-monitor-telemetry', 'pp-plan-solution', 'pp-review-code', 'pp-skill-updater', 'pp-specify', 'pp-tasks-breakdown', 'pp-test-dataverse'];
 
 joinSession({
   tools: [

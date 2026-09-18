@@ -10,8 +10,8 @@ description: >
   Dynamics-365-CE-Dokumentation, Model-Driven-App-Dokumentation,
   ORBIS.ProcessDoc, ORBIS.PluginDoc, Solution-Dokumentation, FormScripting,
   Datenmodell, Plugins, Workflows, Business Rules, Ribbon, Security oder ALM.
-version: 1.0.0
-argument-hint: "[solution.zip] [ORBIS.ProcessDoc-Repo oder PluginDoc-Export] [output-dir]"
+version: 1.1.0
+argument-hint: "[solution.zip] [ORBIS.ProcessDoc-Repo oder PluginDoc-Export] [output-dir] [--modus=technisch|kunde]"
 license: Local use only. No warranty. Customer data stays local.
 ---
 
@@ -40,6 +40,25 @@ Falls das Tool nicht verfügbar ist, brich nicht ab. Arbeite mit den
 Mindestregeln und dem Workflow dieser Datei weiter und kennzeichne in der
 Dokumentation, dass die erweiterte ORBIS.PluginDoc-Methodik nicht geladen
 werden konnte.
+
+## Zwei Ausgabemodi
+
+Diese Skill unterstützt zwei Liefergegenstände; das Tool `dataverse_ce_app_doku_guidelines`
+enthält die volle Methodik zu beiden:
+
+- **Modus „technisch" (Standard)** — 19-Kapitel-Onboarding-Dokumentation für
+  übernehmende Entwickler (Datenmodell, FormScripting, Ribbon, Plugins,
+  Workflows, Business Rules, Security, ALM …).
+- **Modus „kunde"** — beratungsfähige Kunden-Rollout-Dokumentation
+  (Management Summary, Lösungsarchitektur, Security-Konzept mit
+  Berechtigungsmatrix, Datenmodell, Geschäftsprozesse, Customizing-Übersicht,
+  Automatisierungen, Rollout-relevante Informationen, Betriebskonzept, offene
+  Punkte). Aktivieren, wenn der Auftrag Wissensübergabe an ein Kundenteam,
+  Security-Konzept oder Rollout-Vorbereitung nennt (z. B. als Senior D365 CE
+  Solution Architect/Functional Consultant). Ergebnisdatei z. B.
+  `kundendokumentation.md`.
+
+Bei Unklarheit den Nutzer fragen, welcher Modus gewünscht ist, statt zu raten.
 
 ## Erwartete Eingaben
 
@@ -141,7 +160,10 @@ die fachliche Prozesslogik.
 
 ### 5. Dokumentation erzeugen
 
-Die `doku.md` soll mindestens diese Kapitel enthalten:
+Je nach gewähltem Modus (siehe oben) eine von zwei Gliederungen befüllen; beide
+sind in `dataverse_ce_app_doku_guidelines` vollständig beschrieben.
+
+**Modus „technisch"** — die `doku.md` soll mindestens diese Kapitel enthalten:
 
 1. Dokumentstatus und Scope
 2. Executive Summary
@@ -163,7 +185,25 @@ Die `doku.md` soll mindestens diese Kapitel enthalten:
 18. Betrieb, Fehleranalyse und Testkonzept
 19. ADRs, Risiken, offene Punkte und Onboarding-Checkliste
 
-Erzeuge mindestens Mermaid-Diagramme für:
+**Modus „kunde"** — die `kundendokumentation.md` soll diese Kapitel enthalten:
+
+1. Management Summary
+2. Lösungsarchitektur
+3. Security-Konzept (Sicherheitsmodell, Berechtigungsmatrix, Feld-/
+   Datensicherheit, Rollout-/Governance-Empfehlungen)
+4. Datenmodell (je Tabelle: Zweck, Ownership, Beziehungen, Schlüssel-/
+   Pflichtfelder, kundenspezifische Felder)
+5. Geschäftsprozesse (je Prozess: Zweck, Auslöser, Schritte, Rollen, Tabellen,
+   Sonderlogiken, Abhängigkeiten)
+6. Customizing-Übersicht (Formulare, Ansichten, Business Rules, BPFs,
+   Dashboards, Apps, JavaScript, Plug-ins, Custom APIs, Power-Automate-Flows)
+7. Automatisierungen (Workflows, Power Automate, Plug-ins, Trigger, Aktionen,
+   Fehlerbehandlung)
+8. Rollout-relevante Informationen
+9. Betriebskonzept
+10. Offene Punkte und Empfehlungen
+
+In beiden Modi mindestens Mermaid-Diagramme für:
 
 - Systemkontext,
 - relevantes Datenmodell/ER-Modell,
